@@ -89,19 +89,32 @@ class DefaultTransport(Transport):
 
         return path.format(**path_variables)
 
-    def raw_query(self, query_dict):
+    @staticmethod
+    def _query_value(value: Any) -> str:
+        if isinstance(value, Enum):
+            value = value.value
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return str(value)
+
+    def query_items(self, query_dict):
         if not query_dict:
-            return ""
+            return []
 
         result = []
-        for key in query_dict.keys():
-            values = query_dict[key]
-            if not isinstance(values, list):
+        for key, values in query_dict.items():
+            if not isinstance(values, (list, tuple, set)):
                 values = [values]
             for value in values:
-                result.append(f"{key}={value}")
+                if value is not None:
+                    result.append((key, self._query_value(value)))
+        return result
 
-        return "&".join(result)
+    @staticmethod
+    def raw_query(query_items):
+        if not query_items:
+            return ""
+        return "&".join(f"{key}={value}" for key, value in query_items)
 
     def process_request(self, request_obj: Any, broker: bool, path: str, endpoint: str, method: str,
                         request_as_json: bool, **kwargs: Any) -> requests.Request:
@@ -116,12 +129,9 @@ class DefaultTransport(Transport):
         else:
             if method in ["GET", "DELETE"]:
                 if request_obj:
-                    query_dict = {
-                        key: value.value if isinstance(value, Enum) else value
-                        for key, value in request_obj.to_dict().items()
-                    }
-                    query_params = urlencode(query_dict)
-                    raw_query_params = self.raw_query(query_dict)
+                    query_items = self.query_items(request_obj.to_dict())
+                    query_params = urlencode(query_items)
+                    raw_query_params = self.raw_query(query_items)
                     if query_params:
                         full_path += f"?{query_params}"
                         raw_url += f"?{raw_query_params}"

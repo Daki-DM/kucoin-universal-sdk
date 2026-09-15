@@ -24,7 +24,7 @@ The  **KuCoin Universal SDK** is the official SDK provided by KuCoin, offering a
 
 ## 🛠️ Installation
 
-### Latest Version: `1.3.1`(Global API version)
+### Latest Version: `1.3.2`(Global API version)
 
 ### Python Installation
 
@@ -62,47 +62,41 @@ composer require kucoin/kucoin-universal-sdk=0.1.4-alpha
 
 ## 📖 Getting Started
 
-Here's a quick example to get you started with the SDK in **Python**.
+Here's a quick **UTA REST** example to get you started with the SDK in **Python**.
+The API key must have UTA permission enabled.
 
 ```python
-import logging
 import os
 
 from kucoin_universal_sdk.api import DefaultClient
-from kucoin_universal_sdk.generate.spot.market import GetPartOrderBookReqBuilder
-from kucoin_universal_sdk.model import ClientOptionBuilder
-from kucoin_universal_sdk.model import GLOBAL_API_ENDPOINT, GLOBAL_FUTURES_API_ENDPOINT, \
-    GLOBAL_BROKER_API_ENDPOINT
-from kucoin_universal_sdk.model import TransportOptionBuilder
+from kucoin_universal_sdk.model import (
+    ClientOptionBuilder,
+    GLOBAL_API_ENDPOINT,
+    GLOBAL_BROKER_API_ENDPOINT,
+    GLOBAL_FUTURES_API_ENDPOINT,
+    TransportOptionBuilder,
+)
+
+
+def required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing environment variable: {name}")
+    return value
 
 
 def example():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-
-    #  Retrieve API secret information from environment variables
-    key = os.getenv("API_KEY", "")
-    secret = os.getenv("API_SECRET", "")
-    passphrase = os.getenv("API_PASSPHRASE", "")
-
-    # Set specific options, others will fall back to default values
     http_transport_option = (
         TransportOptionBuilder()
         .set_keep_alive(True)
-        .set_max_pool_size(10)
-        .set_max_connection_per_pool(10)
         .build()
     )
 
-    # Create a client using the specified options
     client_option = (
         ClientOptionBuilder()
-        .set_key(key)
-        .set_secret(secret)
-        .set_passphrase(passphrase)
+        .set_key(required_env("API_KEY"))
+        .set_secret(required_env("API_SECRET"))
+        .set_passphrase(required_env("API_PASSPHRASE"))
         .set_spot_endpoint(GLOBAL_API_ENDPOINT)
         .set_futures_endpoint(GLOBAL_FUTURES_API_ENDPOINT)
         .set_broker_endpoint(GLOBAL_BROKER_API_ENDPOINT)
@@ -111,16 +105,10 @@ def example():
     )
     client = DefaultClient(client_option)
 
-    # Get the Restful Service
-    kucoin_rest_service = client.rest_service()
-
-    spot_market_api = kucoin_rest_service.get_spot_service().get_market_api()
-
-    # Query for part orderbook depth data. (aggregated by price)
-    request = GetPartOrderBookReqBuilder().set_symbol("BTC-USDT").set_size("20").build()
-    response = spot_market_api.get_part_order_book(request)
-    logging.info(f"time={response.time}, sequence={response.sequence}, "
-                 f"bids={response.bids}, asks={response.asks}")
+    # UTA REST: query unified account overview.
+    account_api = client.rest_service().get_uta_service().get_account_api()
+    response = account_api.get_account_overview()
+    print(response.data)
 
 
 if __name__ == "__main__":
