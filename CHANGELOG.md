@@ -2,7 +2,16 @@
 
 API documentation [Changelog](https://www.kucoin.com/docs-new/change-log)
 
-Current synchronized API documentation version [20250529](https://www.kucoin.com/docs-new/change-log#20250529)
+Current synchronized API documentation version [20260904](https://www.kucoin.com/docs-new/change-log#20260904)
+
+## 2026-09-15(Go Python Node 1.3.2)
+- UTA interface update
+
+## 2026-09-12(PHP 0.1.4-alpha)
+- UTA interface update
+
+## 2025-09-04(Java 0.1.2-alpha)
+- UTA interface update
 
 ## 2026-05-29(Go Python Node 1.3.1)
 - Modify broker signature parameters

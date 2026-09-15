@@ -1,2 +1,2 @@
-sdk_version = "v1.3.1"
-sdk_generate_date = "2026-05-29"
+sdk_version = "v1.3.2"
+sdk_generate_date = "2026-09-15"

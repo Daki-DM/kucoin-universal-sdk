@@ -2,7 +2,7 @@
 
 API documentation [Changelog](https://www.kucoin.com/docs-new/change-log)
 
-Current synchronized API documentation version [20250904](https://www.kucoin.com/docs-new/change-log#20250904)
+Current synchronized API documentation version [20260904](https://www.kucoin.com/docs-new/change-log#20260904)
 
 ## 2026-09-09(1.3.2)
 - UTA interface update

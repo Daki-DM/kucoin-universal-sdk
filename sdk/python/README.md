@@ -8,86 +8,116 @@ For an overview of the project and SDKs in other languages, refer to the [Main R
 
 ## 📦 Installation
 
-### Latest Version: `1.3.1`
+### Latest Version: `1.3.2`
 Install the Python SDK using `pip`:
 
 ```bash
 pip install kucoin-universal-sdk
 ```
 
-## 📖 Getting Started
+## 📖 UTA Quick Start
 
-Here's a quick example to get you started with the SDK in **Python**.
+The SDK provides UTA REST groups for Account, Market, Order, Positions,
+Affiliate and VIP Lending. Private UTA REST calls require an API key with the
+corresponding UTA permission. Store credentials in environment variables rather
+than source code:
+
+```bash
+export API_KEY='your-api-key'
+export API_SECRET='your-api-secret'
+export API_PASSPHRASE='your-api-passphrase'
+```
+
+### UTA REST: Get Account Overview
 
 ```python
-import logging
 import os
 
 from kucoin_universal_sdk.api import DefaultClient
-from kucoin_universal_sdk.generate.spot.market import GetPartOrderBookReqBuilder
-from kucoin_universal_sdk.model import ClientOptionBuilder
-from kucoin_universal_sdk.model import GLOBAL_API_ENDPOINT, GLOBAL_FUTURES_API_ENDPOINT, \
-    GLOBAL_BROKER_API_ENDPOINT
-from kucoin_universal_sdk.model import TransportOptionBuilder
+from kucoin_universal_sdk.model import (
+    ClientOptionBuilder,
+    GLOBAL_API_ENDPOINT,
+    GLOBAL_BROKER_API_ENDPOINT,
+    GLOBAL_FUTURES_API_ENDPOINT,
+    TransportOptionBuilder,
+)
 
 
-def example():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-
-    #  Retrieve API secret information from environment variables
-    key = os.getenv("API_KEY", "")
-    secret = os.getenv("API_SECRET", "")
-    passphrase = os.getenv("API_PASSPHRASE", "")
-
-    # Set specific options, others will fall back to default values
-    http_transport_option = (
-        TransportOptionBuilder()
-        .set_keep_alive(True)
-        .set_max_pool_size(10)
-        .set_max_connection_per_pool(10)
-        .build()
-    )
-
-    # Create a client using the specified options
-    client_option = (
-        ClientOptionBuilder()
-        .set_key(key)
-        .set_secret(secret)
-        .set_passphrase(passphrase)
-        .set_spot_endpoint(GLOBAL_API_ENDPOINT)
-        .set_futures_endpoint(GLOBAL_FUTURES_API_ENDPOINT)
-        .set_broker_endpoint(GLOBAL_BROKER_API_ENDPOINT)
-        .set_transport_option(http_transport_option)
-        .build()
-    )
-    client = DefaultClient(client_option)
-
-    # Get the Restful Service
-    kucoin_rest_service = client.rest_service()
-
-    spot_market_api = kucoin_rest_service.get_spot_service().get_market_api()
-
-    # Query for part orderbook depth data. (aggregated by price)
-    request = GetPartOrderBookReqBuilder().set_symbol("BTC-USDT").set_size("20").build()
-    response = spot_market_api.get_part_order_book(request)
-    logging.info(f"time={response.time}, sequence={response.sequence}, "
-                 f"bids={response.bids}, asks={response.asks}")
+def required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"{name} is required")
+    return value
 
 
-if __name__ == "__main__":
-    example()
+client = DefaultClient(
+    ClientOptionBuilder()
+    .set_key(required_env("API_KEY"))
+    .set_secret(required_env("API_SECRET"))
+    .set_passphrase(required_env("API_PASSPHRASE"))
+    .set_spot_endpoint(GLOBAL_API_ENDPOINT)
+    .set_futures_endpoint(GLOBAL_FUTURES_API_ENDPOINT)
+    .set_broker_endpoint(GLOBAL_BROKER_API_ENDPOINT)
+    .set_transport_option(TransportOptionBuilder().set_keep_alive(True).build())
+    .build()
+)
 
+account_api = client.rest_service().get_uta_service().get_account_api()
+response = account_api.get_account_overview()
+print(response.data)
 ```
+
+### UTA Public WebSocket: Subscribe to Ticker
+
+UTA public WebSocket channels do not require credentials. SPOT and FUTURES use
+separate direct gateways, so create a service with the matching `PushTradeType`.
+
+```python
+import json
+import time
+
+from kucoin_universal_sdk.api import DefaultClient
+from kucoin_universal_sdk.model import (
+    ClientOptionBuilder,
+    PushTradeType,
+    WebSocketClientOptionBuilder,
+)
+
+
+client = DefaultClient(
+    ClientOptionBuilder()
+    .set_websocket_client_option(
+        WebSocketClientOptionBuilder().with_reconnect(True).build()
+    )
+    .build()
+)
+
+public_ws = client.ws_service().new_uta_public_ws(PushTradeType.SPOT)
+subscription_id = None
+try:
+    public_ws.start()
+    subscription_id = public_ws.ticker(
+        ["BTC-USDT", "ETH-USDT"],
+        lambda event: print(json.dumps(event, ensure_ascii=False)),
+    )
+    print("Subscribed to SPOT ticker. Press Ctrl+C to stop.")
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    pass
+finally:
+    if subscription_id is not None:
+        public_ws.unsubscribe(subscription_id)
+    public_ws.stop()
+```
+
+For authenticated UTA push channels use
+`client.ws_service().new_uta_private_ws()`. For WebSocket order placement,
+cancellation and amendment use
+`client.ws_service().new_uta_private_trade_ws()`.
+
 ## 📚 Documentation
 Official Documentation: [KuCoin API Docs](https://www.kucoin.com/docs-new)  
-
-## 📂 Examples
-
-Explore more examples in the [example/](example/) directory for advanced usage.
 
 ## 📋 Changelog
 
@@ -117,6 +147,8 @@ This section provides specific considerations and recommendations for using the 
 - **Flexible Service Creation**:
   - Supports creating services for public/private channels in Spot, Futures, or Margin trading as needed.
   - Multiple services can be created independently.
+  - UTA direct WebSocket services are available through `new_uta_public_ws`, `new_uta_private_ws`, and `new_uta_private_trade_ws`.
+  - Use a separate UTA public service for `PushTradeType.SPOT` and `PushTradeType.FUTURES`.
 - **Service Lifecycle**:
   - If a service is closed, create a new service instead of reusing it to avoid undefined behavior.
 - **Connection-to-Channel Mapping**:
